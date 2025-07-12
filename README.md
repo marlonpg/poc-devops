@@ -1,12 +1,42 @@
 # poc-devops
 
 # Build a deployment system with:
-- Jenkins
-- Helm
-- OpenTofu
-- Minikub or other kubernetes cluster manager
-- Prometheus
-- Grafana
+---
+
+## 1. Jenkins  
+Jenkins is an open-source automation server used to build, test, and deploy software continuously (CI/CD). It supports many plugins and integrates well with most development tools.  
+🌐 [https://www.jenkins.io](https://www.jenkins.io)
+
+---
+
+## 2. Helm  
+Helm is a package manager for Kubernetes that simplifies the deployment and management of applications using "charts." It helps you version, configure, and install applications in clusters.  
+🌐 [https://helm.sh](https://helm.sh)
+
+---
+
+## 3. OpenTofu  
+OpenTofu is an open-source infrastructure as code (IaC) tool for provisioning and managing cloud resources, fully compatible with Terraform.  
+🌐 [https://opentofu.org](https://opentofu.org)
+
+---
+
+## 4. Minikube (or alternative)  
+Minikube lets you run a local Kubernetes cluster on your machine, great for development and testing. Alternatives include **Kind** and **k3s** for lightweight or production-like setups.  
+🌐 [https://minikube.sigs.k8s.io](https://minikube.sigs.k8s.io)
+
+---
+
+## 5. Prometheus  
+Prometheus is an open-source monitoring system and time-series database designed for reliability and scalability, especially in cloud-native environments.  
+🌐 [https://prometheus.io](https://prometheus.io)
+
+---
+
+## 6. Grafana  
+Grafana is an open-source platform for visualizing time-series data, often used with Prometheus to create dashboards and alerts.  
+🌐 [https://grafana.com](https://grafana.com)
+
 
 * Requirements: You need to be able to deploy an application with all this tools and you need 2 clusters (or 2 namespaces) one for the infra and other for the apps that will be deployed. The pipelines in Jenkins need to run tests and fail if tests fail. OpenTofu need to have automated tests as well, all apps deployed need to be integrated with Grafana and Prometheus by default.
 
