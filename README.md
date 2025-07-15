@@ -41,6 +41,33 @@ Grafana is an open-source platform for visualizing time-series data, often used 
 * Requirements: You need to be able to deploy an application with all this tools and you need 2 clusters (or 2 namespaces) one for the infra and other for the apps that will be deployed. The pipelines in Jenkins need to run tests and fail if tests fail. OpenTofu need to have automated tests as well, all apps deployed need to be integrated with Grafana and Prometheus by default.
 
 
+## Project Structure
+project-root/
+├── manifests/
+│   ├── namespaces.yaml          # defines 'infra' and 'apps' namespaces
+│   ├── jenkins/                 # all Jenkins-related k8s files
+│   │   ├── jenkins-deployment.yaml
+│   │   └── jenkins-service.yaml
+│   ├── monitoring/              # prometheus, grafana deployments
+│   └── other-resources.yaml
+├── helm/
+│   └── my-app/                  # your app's Helm chart
+├── tofu/                        # OpenTofu (Terraform-compatible) files
+│   ├── main.tf
+│   └── ...
+├── scripts/
+│   └── deploy.sh                # helper scripts
+├── Jenkinsfile
+
+
+## How to Run It
+1. Save the script as init-devops-structure.sh
+2. Run it from your terminal:
+```bash
+chmod +x init-devops-structure.sh
+./init-devops-structure.sh
+```
+
 ---
 ### Installing Docker
 https://docs.docker.com/get-docker/
@@ -83,7 +110,7 @@ http://127.0.0.1:59259/api/v1/namespaces/kubernetes-dashboard/services/http:kube
 
 #### Creating YAML to deploy Jenkins (apply it)
 ``` bash
-kubectl apply -f jenkins-deployment.yaml
+kubectl apply -f manifests/jenkins/jenkins-deployment.yaml --namespace infra
 ```
 
 #### Access Jenkins

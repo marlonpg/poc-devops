@@ -1,0 +1,44 @@
+pipeline {
+  agent any
+
+  environment {
+    KUBECONFIG = credentials('kubeconfig') // Store in Jenkins credentials
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        git 'https://github.com/marlonpg/poc-devops.git'
+      }
+    }
+
+    stage('Run Tests') {
+      steps {
+        sh 'scripts/run-tests.sh'
+      }
+    }
+
+    stage('Apply Infra (OpenTofu)') {
+      steps {
+        dir('tofu') {
+          sh 'tofu init'
+          sh 'tofu apply -auto-approve'
+        }
+      }
+    }
+
+    stage('Deploy App (Helm)') {
+      steps {
+        sh 'helm upgrade --install my-app helm/my-app --namespace apps --create-namespace'
+      }
+    }
+  }
+
+  post {
+    failure {
+      mail to: 'devops-team@example.com',
+           subject: "Build failed in Jenkins: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+           body: "Check Jenkins logs for details."
+    }
+  }
+}
