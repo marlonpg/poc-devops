@@ -42,6 +42,7 @@ Grafana is an open-source platform for visualizing time-series data, often used 
 
 
 ## Project Structure
+```
 project-root/
 ├── manifests/
 │   ├── namespaces.yaml          # defines 'infra' and 'apps' namespaces
@@ -58,7 +59,7 @@ project-root/
 ├── scripts/
 │   └── deploy.sh                # helper scripts
 ├── Jenkinsfile
-
+```
 
 ## How to Run It
 1. Save the script as init-devops-structure.sh
@@ -129,3 +130,64 @@ kubectl exec -it $(kubectl get pod -l app=jenkins -o jsonpath="{.items[0].metada
 
 #### After adding some default plugins
 ![alt text](images/jenkins-first-page.png)
+
+
+## OpenTofu
+
+### Install
+``` bash
+winget install --exact --id=OpenTofu.Tofu
+```
+### Step 1: Initialize OpenTofu (if not already)
+``` bash
+tofu init
+```
+### Step 2: Displays the actions OpenTofu will perform without changing anything.
+``` bash
+tofu plan
+```
+### Step 3: Apply the Configuration
+``` bash
+tofu apply
+```
+### Additional Steps
+
+### Displays the current state of infrastructure.
+``` bash
+tofu show
+```
+### Destroy Infrastructure
+``` bash
+tofu destroy
+```
+### Step 3: Apply the Configuration
+``` bash
+tofu apply
+```
+
+
+## Helm
+
+### Install
+``` bash
+choco install kubernetes-helm
+```
+
+
+# NEXT STEPS
+
+- Deploy Jenkins via Helm using OpenTofu
+  - Create a file, say jenkins.tf, with this content:
+```t
+resource "helm_release" "jenkins" {
+  name       = "jenkins"
+  namespace  = "infra"
+  repository = "https://charts.jenkins.io"
+  chart      = "jenkins"
+  version    = "5.1.7" # You can update to latest version if you want
+
+  values = [
+    file("${path.module}/jenkins-values.yaml")
+  ]
+}
+```
