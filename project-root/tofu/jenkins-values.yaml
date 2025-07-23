@@ -1,0 +1,3 @@
+controller:
+  serviceType: NodePort
+  nodePort: 30001
