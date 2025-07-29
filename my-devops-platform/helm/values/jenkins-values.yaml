@@ -1,0 +1,15 @@
+# jenkins-values.yaml
+controller:
+  # Install a specific set of plugins to get started
+  installPlugins:
+    - kubernetes
+    - workflow-aggregator
+    - git
+    - configuration-as-code
+
+  # Enable persistence for the Jenkins home directory
+  persistence:
+    enabled: true
+    # Minikube provides a default storage class named "standard"
+    storageClass: "standard"
+    size: "8Gi"
