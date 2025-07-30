@@ -1,15 +1,43 @@
-# jenkins-values.yaml
+# helm/values/jenkins-values.yaml
 controller:
-  # Install a specific set of plugins to get started
   installPlugins:
     - kubernetes
     - workflow-aggregator
     - git
     - configuration-as-code
-
-  # Enable persistence for the Jenkins home directory
   persistence:
     enabled: true
-    # Minikube provides a default storage class named "standard"
     storageClass: "standard"
     size: "8Gi"
+
+# Add this entire 'agent' section
+agent:
+  # Define the Kubernetes cloud configuration
+  kubernetes:
+    # The name of the cloud in Jenkins UI
+    name: kubernetes
+    # The namespace where Jenkins controller runs
+    namespace: infra
+    # The internal URL for Jenkins
+    jenkinsUrl: http://jenkins.infra.svc.cluster.local:8080
+    # The ID of the credential we will create later
+    credentialsId: kubernetes-jenkins-agent
+    # Define the build agent pod templates
+    podTemplates:
+      # Name of the first pod template
+      maven-agent:
+        # A label for pipelines to select this agent
+        label: jenkins-maven-agent
+        # The namespace where agent pods will be created
+        namespace: apps
+        # Define the containers inside the agent pod
+        containers:
+        - name: jnlp
+          image: jenkins/inbound-agent:latest-jdk17
+          workingDir: /home/jenkins/agent
+          alwaysPullImage: true
+        - name: maven
+          image: maven:3.9.6-eclipse-temurin-17
+          command: cat
+          ttyEnabled: true
+          alwaysPullImage: true
