@@ -4,6 +4,7 @@ controller:
     - kubernetes
     - workflow-aggregator
     - git
+    - github-branch-source
     - configuration-as-code
   persistence:
     enabled: true
