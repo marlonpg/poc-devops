@@ -1,0 +1,53 @@
+# helm/values/jenkins-values.yaml
+controller:
+  installPlugins:
+    - kubernetes
+    - workflow-aggregator
+    - git
+    - configuration-as-code
+    # Add this plugin for the seed job
+    - job-dsl
+  persistence:
+    enabled: true
+    storageClass: "standard"
+    size: "8Gi"
+
+agent:
+  kubernetes:
+    name: kubernetes
+    namespace: infra
+    jenkinsUrl: http://jenkins.infra.svc.cluster.local:8080
+    credentialsId: kubernetes-jenkins-agent
+    podTemplates:
+      maven-agent:
+        label: jenkins-maven-agent
+        namespace: apps
+        volumes:
+        - hostPathVolume:
+            path: /var/run/docker.sock
+            hostPathType: ""
+            name: docker-sock
+        containers:
+        - name: jnlp
+          image: jenkins/inbound-agent:latest-jdk17
+          workingDir: /home/jenkins/agent
+          alwaysPullImage: true
+        - name: maven
+          image: maven:3.9.6-eclipse-temurin-17
+          command: cat
+          ttyEnabled: true
+          alwaysPullImage: true
+        - name: docker
+          image: docker:20.10.17
+          command: cat
+          ttyEnabled: true
+          alwaysPullImage: true
+          volumeMounts:
+          - mountPath: /var/run/docker.sock
+            name: docker-sock
+            readOnly: false
+        - name: helm
+          image: alpine/helm:3.9.0
+          command: cat
+          ttyEnabled: true
+          alwaysPullImage: true

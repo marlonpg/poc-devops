@@ -4,7 +4,7 @@ This document outlines an integrated, professional workflow for setting up a loc
 **Architecture:**
 1.  **Minikube:** Acts as our local cloud provider, creating a bare Kubernetes cluster.
 2.  **OpenTofu:** Provisions and manages all infrastructure resources inside Kubernetes, including namespaces and Helm chart releases for our applications.
-3.  **Helm:** The package format used by OpenTofu to install applications. Direct `helm` CLI commands for setup are no longer needed.
+3.  **Helm:** The package format used by OpenTofu to install applications.
 4.  **Jenkins:** Runs a "seed job" to automatically generate CI/CD pipelines for applications.
 
 ---
@@ -28,122 +28,15 @@ mkdir my-devops-platform
 cd my-devops-platform
 ```
 
-### 1.3. Define All Infrastructure Resources in OpenTofu
+### 1.3. Define Jenkins Helm Configuration
 
-We will now define our core namespaces and application installations as code in a single `main.tf` file. This is the core of our integrated setup.
-
-```hcl
-# main.tf
-
-terraform {
-  required_providers {
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "2.23.0"
-    }
-    helm = {
-      source  = "hashicorp/helm"
-      version = "2.9.0"
-    }
-  }
-}
-
-# Configure the Kubernetes provider to talk to our running Minikube cluster.
-provider "kubernetes" {
-  config_path    = "~/.kube/config"
-  config_context = "minikube"
-}
-
-# Configure the Helm provider to use the same Kubernetes context.
-provider "helm" {
-  kubernetes {
-    config_path    = "~/.kube/config"
-    config_context = "minikube"
-  }
-}
-
-# --- Base Namespaces ---
-resource "kubernetes_namespace" "infra" {
-  metadata {
-    name = "infra"
-  }
-}
-
-resource "kubernetes_namespace" "apps" {
-  metadata {
-    name = "apps"
-  }
-}
-
-# --- Helm Repositories ---
-resource "helm_repository" "prometheus_community" {
-  name = "prometheus-community"
-  url  = "[https://prometheus-community.github.io/helm-charts](https://prometheus-community.github.io/helm-charts)"
-}
-
-resource "helm_repository" "jenkins" {
-  name = "jenkins"
-  url  = "[https://charts.jenkins.io](https://charts.jenkins.io)"
-}
-
-# --- Helm Releases (Application Installations) ---
-
-# Install Prometheus using the helm_release resource.
-resource "helm_release" "prometheus" {
-  name       = "prometheus"
-  repository = helm_repository.prometheus_community.name
-  chart      = "kube-prometheus-stack"
-  namespace  = kubernetes_namespace.infra.metadata[0].name
-
-  # Ensure the namespace exists before trying to install.
-  depends_on = [kubernetes_namespace.infra]
-}
-
-# Install Jenkins using the helm_release resource.
-resource "helm_release" "jenkins" {
-  name       = "jenkins"
-  repository = helm_repository.jenkins.name
-  chart      = "jenkins"
-  namespace  = kubernetes_namespace.infra.metadata[0].name
-
-  # Load the configuration from our values file.
-  values = [
-    file("${path.module}/helm/values/jenkins-values.yaml")
-  ]
-
-  # Ensure the namespace and chart repository exist first.
-  depends_on = [
-    kubernetes_namespace.infra,
-    helm_repository.jenkins
-  ]
-}
-```
-
-### 1.4. Provision All Infrastructure with OpenTofu
-
-Now, a single command will set up our namespaces AND install Prometheus and Jenkins.
+This step must be done **before** running `tofu apply`. Create the directory and the `helm/values/jenkins-values.yaml` file in your `my-devops-platform` project.
 
 ```bash
-# Initialize the OpenTofu providers
-tofu init
-
-# Apply the configuration to create all resources
-tofu apply --auto-approve
+mkdir -p helm/values
 ```
 
-**Verification:** Check that the namespaces and all pods in the `infra` namespace are created and running. This may take a few minutes.
-
-```bash
-kubectl get namespaces
-kubectl get pods --namespace infra --watch
-```
-
----
-
-## 2. Define Jenkins Configuration
-
-This step remains, as our OpenTofu `helm_release` for Jenkins depends on this file. In your `my-devops-platform` project, create `helm/values/jenkins-values.yaml`.
-
+Now create the `helm/values/jenkins-values.yaml` file with the following content:
 ```yaml
 # helm/values/jenkins-values.yaml
 controller:
@@ -200,13 +93,121 @@ agent:
           alwaysPullImage: true
 ```
 
+### 1.4. Define All Infrastructure Resources in OpenTofu
+
+Now, create the `main.tf` file in your project root. It will define our namespaces and application installations, and it can now correctly reference the `jenkins-values.yaml` file you just created.
+
+```hcl
+# main.tf
+
+terraform {
+  required_providers {
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "2.23.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "2.9.0"
+    }
+  }
+}
+
+# Configure the Kubernetes provider to talk to our running Minikube cluster.
+provider "kubernetes" {
+  config_path    = "~/.kube/config"
+  config_context = "minikube"
+}
+
+# Configure the Helm provider to use the same Kubernetes context.
+provider "helm" {
+  kubernetes {
+    config_path    = "~/.kube/config"
+    config_context = "minikube"
+  }
+}
+
+# --- Base Namespaces ---
+resource "kubernetes_namespace" "infra" {
+  metadata {
+    name = "infra"
+  }
+}
+
+resource "kubernetes_namespace" "apps" {
+  metadata {
+    name = "apps"
+  }
+}
+
+# --- Helm Releases (Application Installations) ---
+
+# Install Prometheus using the helm_release resource.
+resource "helm_release" "prometheus" {
+  name       = "prometheus"
+  repository = "[https://prometheus-community.github.io/helm-charts](https://prometheus-community.github.io/helm-charts)"
+  chart      = "kube-prometheus-stack"
+  namespace  = kubernetes_namespace.infra.metadata[0].name
+
+  # Ensure the namespace exists before trying to install.
+  depends_on = [kubernetes_namespace.infra]
+}
+
+# Install Jenkins using the helm_release resource.
+resource "helm_release" "jenkins" {
+  name       = "jenkins"
+  repository = "[https://charts.jenkins.io](https://charts.jenkins.io)"
+  chart      = "jenkins"
+  namespace  = kubernetes_namespace.infra.metadata[0].name
+
+  # Load the configuration from our values file.
+  values = [
+    file("${path.module}/helm/values/jenkins-values.yaml")
+  ]
+
+  # Ensure the namespace exists first.
+  depends_on = [kubernetes_namespace.infra]
+}
+```
+
+### 1.5. Provision All Infrastructure with OpenTofu
+
+Now, a single command will set up our namespaces AND install Prometheus and Jenkins.
+
+```bash
+# Initialize the OpenTofu providers
+tofu init
+
+# Apply the configuration to create all resources
+tofu apply --auto-approve
+```
+
+**Verification:** Check that the namespaces and all pods in the `infra` namespace are created and running. This may take a few minutes.
+
+```bash
+kubectl get namespaces
+kubectl get pods --namespace infra --watch
+```
+
 ---
 
-## 3. Configure Jenkins Security & Access
+## 2. Access and Configure Jenkins
 
-### 3.1. Create Kubernetes Service Account for Jenkins
+### 2.1. Access Jenkins UI & Get Admin Password
 
-This part is now optional, as you can manage these resources with Tofu as well, but for clarity, we'll keep it as a `kubectl` step. Create `kubernetes/jenkins-sa/service-account.yaml`:
+1.  **Forward the port to access the UI.** In a dedicated terminal, run:
+    ```bash
+    kubectl port-forward svc/jenkins 8080:8080 -n infra
+    ```
+2.  **Get the auto-generated admin password.** In another terminal, run:
+    ```bash
+    kubectl get secret jenkins -n infra -o jsonpath="{.data.jenkins-admin-password}" | base64 --decode
+    ```
+3.  Open a web browser to `http://localhost:8080`. Log in with the username `admin` and the password you just retrieved.
+
+### 2.2. Create Kubernetes Service Account for Jenkins
+
+This step gives Jenkins the permissions it needs to deploy applications. Create `kubernetes/jenkins-sa/service-account.yaml`:
 ```yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -247,9 +248,9 @@ Apply them:
 kubectl apply -f kubernetes/jenkins-sa/
 ```
 
-### 3.2. Add Kubernetes Credentials to Jenkins
+### 2.3. Add Kubernetes Credentials to Jenkins
 
-1. Go to your Jenkins UI (use `kubectl port-forward svc/jenkins 8080:8080 -n infra` to access it).
+1. Go to your Jenkins UI.
 2. Navigate to **Manage Jenkins** > **Credentials**.
 3. Click **(global)** domain, then **Add Credentials**.
 4. Fill out the form:
@@ -260,9 +261,9 @@ kubectl apply -f kubernetes/jenkins-sa/
 
 ---
 
-## 4. Define the Platform's Automation Logic
+## 3. Define the Platform's Automation Logic
 
-### 4.1. Create a Generic Application Helm Chart
+### 3.1. Create a Generic Application Helm Chart
 
 In your `my-devops-platform` repository, create a reusable Helm chart for deploying applications.
 
@@ -283,7 +284,7 @@ podAnnotations:
 # ...
 ```
 
-### 4.2. Create the Job DSL Script
+### 3.2. Create the Job DSL Script
 
 This script generates the `build` and `deploy` pipelines. In your `my-devops-platform` repo, create `dsl/seed.groovy`:
 
@@ -368,16 +369,16 @@ pipelineJob("${repoName}/deploy-${repoName}") {
 
 ---
 
-## 5. Create the Seed Job and Onboard an Application
+## 4. Create the Seed Job and Onboard an Application
 
-### 5.1. Enable the Minikube Docker Registry
+### 4.1. Enable the Minikube Docker Registry
 
 The DSL script pushes images to Minikube's internal registry. Enable it:
 ```bash
 minikube addons enable registry
 ```
 
-### 5.2. Create the Seed Job in Jenkins
+### 4.2. Create the Seed Job in Jenkins
 
 1.  Go to your Jenkins UI.
 2.  Click **New Item** > `seed-job` > **Freestyle project** > **OK**.
@@ -393,7 +394,7 @@ minikube addons enable registry
         * DSL Scripts: `dsl/seed.groovy`.
     * Click **Save**.
 
-### 5.3. Onboard the Application
+### 4.3. Onboard the Application
 
 1.  Run the `seed-job` with the `REPO_URL` parameter pointing to your Java application's repository.
 2.  A new folder `sample-java-api` will be created with `build` and `deploy` jobs.
@@ -402,7 +403,7 @@ minikube addons enable registry
 
 ---
 
-## 6. Automated Testing for OpenTofu Code
+## 5. Automated Testing for OpenTofu Code
 
 To meet the requirement for testing infrastructure code, we will create a CI pipeline for our OpenTofu files.
 
