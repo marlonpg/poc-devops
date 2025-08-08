@@ -49,6 +49,7 @@ controller:
     - job-dsl
   persistence:
     enabled: true
+    # Set the storage class of your minikube installation
     storageClass: "standard"
     size: "8Gi"
 
@@ -285,6 +286,7 @@ podAnnotations:
 ```
 
 ### 3.2. Create the Job DSL Script
+This script generates the `build` and `deploy` pipelines.
 
 This script generates the `build` and `deploy` pipelines. In your `my-devops-platform` repo, create `dsl/seed.groovy`:
 
@@ -352,6 +354,7 @@ pipelineJob("${repoName}/deploy-${repoName}") {
                     stages {
                         stage('Deploy to Kubernetes') {
                             steps {
+                                // need to configure authentication if the registry is not a local registry
                                 container('helm') {
                                     git url: '${platformRepoUrl}', branch: 'main'
                                     sh 'helm upgrade --install \${HELM_RELEASE_NAME} ./\${HELM_CHART_PATH} --namespace apps --set image.repository="\${DOCKER_REGISTRY}/\${IMAGE_NAME}" --set image.tag="\${params.IMAGE_TAG}" --set image.pullPolicy=Always'
@@ -388,6 +391,7 @@ minikube addons enable registry
         * Name: `REPO_URL`
         * Description: `The Git URL of the application to onboard (e.g., https://github.com/marlonpg/sample-java-api.git)`
     * **Source Code Management** > **Git**.
+        # Point to your forked repository
         * Repository URL: Enter the URL to *your* `my-devops-platform` repository. **(Commit and push your changes first!)**
     * **Build Steps** > **Add build step** > **Process Job DSLs**.
         * Select **Look on Filesystem**.
@@ -438,4 +442,40 @@ To meet the requirement for testing infrastructure code, we will create a CI pip
         }
     }
     ```
+5.  **Create an Organization Folder in Jenkins**, pointing it at your GitHub username/organization. It will now automatically discover your `my-devops-platform` repository and create a CI job that runs these Tofu checks on every commit.
+
+### 6. Automated Testing with Terratest
+
+To meet the requirement for testing infrastructure code, we will create a CI pipeline for our OpenTofu files.
+
+1.  In your `my-devops-platform` repository, create `test/tofu_test.go`:
+    ```go
+    package test
+
+    import (
+        "testing"
+
+        "github.com/gruntwork-io/terratest/modules/opentofu"
+        "github.com/stretchr/testify/assert"
+    )
+
+    func TestTofu(t *testing.T) {
+        // Construct the OpenTofu options with default values.
+        tofuOptions := opentofu.NewTerraformOptions("../project-root/tofu")
+
+        // Run "tofu init" and "tofu apply". Fail the test if there are any errors.
+        opentofu.InitAndApply(t, tofuOptions)
+
+        // Run "tofu output" to get the values of output variables and check they have the expected values.
+        output := opentofu.Output(t, tofuOptions, "jenkins")
+        assert.NotEmpty(t, output)
+
+        // At the end of the test, run "tofu destroy" to clean up any resources that were created.
+        defer opentofu.Destroy(t, tofuOptions)
+    }
+
 4.  **Create an Organization Folder in Jenkins**, pointing it at your GitHub username/organization. It will now automatically discover your `my-devops-platform` repository and create a CI job that runs these Tofu checks on every commit.
+
+### 7. Recommended Git Commit Strategy
+
+Trunk-based development
